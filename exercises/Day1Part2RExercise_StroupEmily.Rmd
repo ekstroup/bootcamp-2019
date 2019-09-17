@@ -1,0 +1,177 @@
+---
+title: "Rmd Exercise Template"
+author: Emily Stroup
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+```
+
+## Load Data
+
+We will begin by loading the gapminder dataset using the function `readr::read_csv()`. This function is helpful because it loads our data directly into a tibble without converting strings to factors and also reporting on the data types of each column.
+
+```{r}
+dat <- read_csv("../data/gapminder5.csv")
+```
+
+We can see that there are `r nrow(dat)` observations of `r ncol(dat)` variables, which includes: `r names(dat)`. Of these variables, country and continent are strings while year, population, life expectancy and GDP per capita are numeric.
+
+```{r}
+str(dat)
+```
+
+
+## If Statement
+
+Next we will use an `if()` statement to report whether there are any records from 2002 or 2012 in the gapminder dataset.
+
+```{r}
+if (2002 %in% unique(dat$year)) {
+  print(paste0("There are ", sum(dat$year == 2002), " entries for 2002."))
+} else {
+  print(paste0("There are no entries for 2002."))
+}
+```
+
+```{r}
+if (2012 %in% unique(dat$year)) {
+  print(paste0("There are ", sum(dat$year == 2012), " entries for 2012."))
+} else {
+  print(paste0("There are no entries for 2012."))
+}
+```
+
+
+## Loop and If Statements
+
+We will now write a script that finds the mean life expectancy by country for countries whose population is below the mean for the dataset.
+
+```{r}
+
+mean_pop <- mean(dat$pop, na.rm = T)
+
+for (c in unique(dat$country)) {
+  
+  if (mean(dat$pop[dat$country == c], na.rm = T) < mean_pop) {
+    print(paste0(c, ": ", mean(dat$lifeExp[dat$country == c], na.rm = T)))
+  }
+}
+
+```
+
+Write a script that loops through the gapminder data by continent and prints out whether the mean life expectancy is smaller than 50, between 50 and 70, or greater than 70.
+
+```{r}
+
+for (continent in unique(dat$continent)) {
+  
+  mean_le <- mean(dat$lifeExp[dat$continent == continent], na.rm = T)
+  
+  if (mean_le < 50) {
+    print(paste0(continent, ": the mean life expectancy is less than 50 years."))
+  } else if (between(mean_le, 50, 70)) {
+    print(paste0(continent, ": the mean life expectancy is between 50-70 years."))
+  } else if (mean_le > 70) {
+    print(paste0(continent, ": the mean life expectancy is greater than 70 years."))
+  }
+}
+
+```
+
+## Write Functions
+
+Create a function that given a data frame will print the name of each column and the class of data it contains. Use the gapminder dataset.
+
+```{r}
+
+data_type_tester <- function(df) {
+  
+  for (col in names(df)) {
+    print(paste0("Column: ", str_to_upper(col), " is of class ", class(df[[col]])))
+  }
+}
+
+data_type_tester(dat)
+
+```
+
+Create a function that given a vector will print the mean and the standard deviation of a vector, it will optionally also print the median. Hint: include an argument that takes a boolean (TRUE/FALSE) operator and then include an if statement.
+
+```{r}
+
+vector_report <- function(vec, median = TRUE) {
+  
+  mean_vec <- mean(vec, na.rm = T)
+  sd_vec <- sd(vec, na.rm = T)
+  median_vec <- median(vec, na.rm = T)
+  
+  if (median) {
+    cat(paste0("Mean: ", mean_vec,
+               "\nStandard Deviation: ", sd_vec,
+               "\nMedian: ", median_vec))
+  } else {
+    cat(paste0("Mean: ", mean_vec,
+               "\nStandard Deviation: ", sd_vec))
+  }
+}
+
+vector_report(dat$lifeExp, median = TRUE)
+vector_report(dat$lifeExp, median = FALSE)
+
+```
+
+## Analyzing the Relationship
+
+Use what you’ve learned so far to answer the following questions using the gapminder dataset. Be sure to include some visualizations!
+
+#### What is the relationship between GDP per capita and life expectancy? 
+
+```{r}
+
+ggplot(data = dat, aes(x = log(gdpPercap), y = log(lifeExp))) + 
+  geom_point() + geom_smooth(method = "lm") + theme_bw() + 
+  ggtitle("Relationship between log-transformed per capita GDP and life expectancy")
+
+```
+
+Based on the plot above, we can see that there is a positive relationship between the log(gdp per capita) and the log(life expectancy), indicating that as gdp per capita increases so does life expectancy.
+
+#### Does this relationship change over time?
+
+```{r}
+
+ggplot(data = dat, aes(x = log(gdpPercap), y = log(lifeExp))) + 
+  geom_point() + geom_smooth(method = "lm") + theme_bw() + facet_wrap(~ year) + 
+  ggtitle("Relationship between log-transformed per capita GDP and life expectancy")
+
+```
+
+While the relationship between log(gdp per capita) and log(life expectancy) does not change - it remains a strong, positive relationship - we can see that the spread of per capita gdp increases and life expectancy climbs higher as the years increase.
+
+#### Does the relationship between GDP per capita and life expectacy vary by continent? Make sure you divide the Americas into North and South America.
+
+```{r}
+
+north_am_countries <- c("Antigua and Barbuda", "Bahamas", "Barbados", "Belize", 
+                        "Canada", "Costa Rica", "Cuba", "Dominica", "Dominican Republic", 
+                        "El Salvador", "Grenada", "Guatemala", "Haiti", "Honduras", 
+                        "Jamaica", "Mexico", "Nicaragua", "Panama", "Saint Kitts and Nevis", 
+                        "Saint Lucia", "Saint Vincent and the Grenadines", "Trinidad and Tobago", 
+                        "United States")
+
+dat %>% as_tibble() %>%
+  mutate(Continent = case_when(continent != "Americas" ~ continent,
+                               continent == "Americas" & (country %in% north_am_countries) ~ "North America",
+                               continent == "Americas" & !(country %in% north_am_countries) ~ "South America")) %>%
+  ggplot(aes(x = log(gdpPercap), y = log(lifeExp))) + 
+  geom_point() + geom_smooth(method = "lm") + facet_wrap(~ Continent) + 
+  theme_bw() + ggtitle("Relationship between Per Capita GDP and Life Expectancy by Continent")
+
+```
+
+Based on the plot above, we can conclude that the relationship for these two variables does in fact vary by continent. Notably, you can see that the correlation between log(per capita gdp) and log(life expectancy) is much higher for Oceania and Europe that Africa and Asia. Additionally, the correlation for North America is greater than for South America - and the spread of log(per capita gdp) seems to be greater as well.
